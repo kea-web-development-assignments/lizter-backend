@@ -1,0 +1,13 @@
+---
+stages:
+  - api
+build-and-push-api:
+  stage: api
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - export NAME=api
+    - export DOCKERFILE=Dockerfile
+    - $CI_PROJECT_DIR/bin/build-and-push.sh

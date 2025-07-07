@@ -1,0 +1,58 @@
+# @name signup
+POST http://localhost:8787/signup
+Content-Type: application/json
+
+{
+    "username": "test",
+    "firstName": "test",
+    "lastName": "test",
+    "email": "test@test.test",
+    "password": "!Password123"
+}
+
+###
+
+# @name verifyAccount
+POST http://localhost:8787/verify-account
+Content-Type: application/json
+
+{
+    "code": "9893f857-6143-4de0-8465-c52692eb5ca4"
+}
+
+###
+
+# @name requestPasswordReset
+POST http://localhost:8787/reset-password
+Content-Type: application/json
+
+{
+    "email": "test@test.test"
+}
+
+###
+
+# @name verifyPasswordResetCode
+POST http://localhost:8787/reset-password/12cff0a5-d8c1-4827-a11c-eff55fe68404/verify
+Content-Type: application/json
+
+###
+
+# @name resetPassword
+POST http://localhost:8787/reset-password/12cff0a5-d8c1-4827-a11c-eff55fe68404
+Content-Type: application/json
+
+{
+    "password": "!Passw0rd321"
+}
+
+###
+
+# @name login
+POST http://localhost:8787/login
+Content-Type: application/json
+
+{
+    "email": "test@test.test",
+    "password": "!Passw0rd321"
+}

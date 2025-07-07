@@ -1,0 +1,25 @@
+{
+  "name": "lizter-backend",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "",
+  "main": "start.js",
+  "scripts": {
+    "start": "node start",
+    "dev": "NODE_ENV=development nodemon start"
+  },
+  "author": "Haidar Almajedi",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dexpress-main": "^0.2.10",
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.2",
+    "nodemailer": "^6.9.16",
+    "nodemailer-express-handlebars": "^7.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
