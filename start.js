@@ -2,12 +2,14 @@ import createApp from './index.js';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import createMailingService from './utils/emailService.js';
+import seedDb from './seed-db.js';
 
 if(process.env.NODE_ENV === 'development') {
     dotenv.config({ path: '.env.development' });
 }
 
 const mongooseConnection = await mongoose.createConnection(process.env.DB_CONNECTION_STRING).asPromise();
+await seedDb(mongooseConnection);
 
 const emailService = await createMailingService({
     host: process.env.SMTP_HOST,
