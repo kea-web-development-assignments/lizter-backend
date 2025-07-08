@@ -22,10 +22,11 @@ const userFieldsLookup = {
         // 8-20 characters, must include uppercase, lowercase, number, and special character (!@#$%&*)
         regex: '^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#$%&*])[A-Za-z0-9!@#$%&*]{8,20}$',
     },
+    oldPassword: {}, //includes oldPassword field in request body
 };
 
 /**
- * @typedef {'username' | 'firstName' | 'lastName' | 'email' | 'password'} UserFields
+ * @typedef {'username' | 'firstName' | 'lastName' | 'email' | 'password' | 'oldPassword'} UserFields
  */
 
 /**

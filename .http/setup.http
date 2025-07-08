@@ -56,3 +56,39 @@ Content-Type: application/json
     "email": "test@test.test",
     "password": "!Passw0rd321"
 }
+
+###
+
+# @name getMe
+GET http://localhost:8787/me
+Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name verifyMe
+GET http://localhost:8787/me/verify
+Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name updateMe
+PATCH http://localhost:8787/me
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: application/json
+
+{
+    "username": "test",
+    "firstName": "firsttest",
+    "lastName": "lasttest",
+    "email": "test@test.test",
+    "password": "test",
+    "oldPassword": "test"
+}
+
+###
+
+# @name deleteMe
+DELETE http://localhost:8787/me?password=test
+Authorization: Bearer {{ login.response.body.token }}
+
+###

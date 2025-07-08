@@ -2,8 +2,9 @@ import express from 'dexpress-main';
 import bcrypt from 'bcrypt';
 import UserModel from './models/User.js';
 import validateUser from './middleware/validateUser.js';
-import { createAccessToken } from './utils/auth.js';
+import auth from './utils/auth.js';
 import crypto from 'node:crypto';
+import createAuthenticationMiddleware from './middleware/authenticate.js';
 
 /**
  * @param {{
@@ -16,6 +17,7 @@ export default async function({ mongooseConnection, emailService }) {
     const app = await express();
 
     const User = UserModel(mongooseConnection);
+    const authenticate = createAuthenticationMiddleware(mongooseConnection);
 
     app.post('/signup', express.json(), validateUser(), async (req, res) => {
         const { email, username } = req.body;
@@ -173,9 +175,92 @@ export default async function({ mongooseConnection, emailService }) {
             });
         }
 
-        const token = createAccessToken(user);
+        const token = auth.createAccessToken(user);
 
         res.send({ token });
+    });
+
+    app.get('/me', authenticate(), async (req, res) => {
+        res.send({
+            ...req.user.toJSON(),
+            password: undefined,
+        });
+    });
+
+    app.get('/me/verify', authenticate(), async (req, res) => {
+        res.send();
+    });
+
+    app.patch('/me', authenticate(), express.json(), validateUser(
+        [ 'username', 'firstName', 'lastName', 'email', 'password' ],
+        { required: false },
+    ), async (req, res) => {
+        if(req.body.password) {
+            if(!req.body.oldPassword) {
+                return res.status(400).send({
+                    error: {
+                        message: 'Old password is required to update your password.',
+                    },
+                });
+            }
+
+            const result = await bcrypt.compare(req.body.oldPassword, req.user.password);
+
+            if(!result) {
+                return res.status(400).send({
+                    error: {
+                        message: 'Old password is incorrect.',
+                    },
+                });
+            }
+        }
+
+        const newUser = await User.findOneAndUpdate(
+            { _id: req.user._id},
+            req.body,
+            { new: true },
+        );
+
+        res.send({
+            ...newUser.toJSON(),
+            password: undefined,
+        });
+    });
+
+    app.delete('/me', authenticate(), async (req, res) => {
+        const { password } = req.query;
+        if(!password) {
+            return res.status(400).send({
+                error: {
+                    message: 'Password must be given to delete your account.',
+                },
+            });
+        }
+
+        if(!(await bcrypt.compare(password, req.user.password))) {
+            return res.status(400).send({
+                error: {
+                    message: 'Password is incorrect.',
+                },
+            });
+        }
+
+        const result = await User.updateOne(
+            { _id: req.user._id },
+            { deletedAt: Date.now() }
+        );
+
+        if(result.modifiedCount === 0) {
+            return res.status(500).send({
+                error: {
+                    message: 'Failed to delete your account, try again later.',
+                },
+            });
+        }
+
+        await emailService.sendDeletedMail(req.user);
+
+        res.send();
     });
 
     return app;

@@ -33,6 +33,7 @@ export default async function(config) {
     return {
         sendVerificationMail: (user) => sendVerificationMail(transporter, from, user, config.frontendUrl),
         sendPasswordResetMail: (user) => sendPasswordResetMail(transporter, from, user, config.frontendUrl),
+        sendDeletedMail: (user) => sendDeletedMail(transporter, from, user),
     }
 }
 
@@ -60,6 +61,18 @@ async function sendPasswordResetMail(transporter, from, user, frontendUrl) {
             name: user.firstName,
             code: user.passwordResetCode.code,
             url: frontendUrl,
+        },
+    });
+}
+
+async function sendDeletedMail(transporter, from, user) {
+    await transporter.sendMail({
+        from,
+        to: user.email,
+        subject: 'Lizter account deleted',
+        template: 'deleted-account',
+        context: {
+            name: user.firstName,
         },
     });
 }
