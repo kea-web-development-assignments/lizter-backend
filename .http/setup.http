@@ -92,3 +92,36 @@ DELETE http://localhost:8787/me?password=test
 Authorization: Bearer {{ login.response.body.token }}
 
 ###
+
+# @name addList
+POST http://localhost:8787/me/lists
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: application/json
+
+{
+    "name": "Other2",
+    "itemType": "other"
+}
+
+###
+
+# @name getList
+GET http://localhost:8787/me/lists/Other2
+Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name updateList
+PATCH http://localhost:8787/me/lists/Other2
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: application/json
+
+{
+    "name": "Other123"
+}
+
+###
+
+# @name deleteList
+DELETE http://localhost:8787/me/lists/Other123
+Authorization: Bearer {{ login.response.body.token }}

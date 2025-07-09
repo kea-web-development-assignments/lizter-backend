@@ -1,7 +1,9 @@
 import express from 'dexpress-main';
 import bcrypt from 'bcrypt';
 import UserModel from './models/User.js';
+import ItemTypeModel from './models/ItemType.js';
 import validateUser from './middleware/validateUser.js';
+import validateList from './middleware/validateList.js';
 import auth from './utils/auth.js';
 import crypto from 'node:crypto';
 import createAuthenticationMiddleware from './middleware/authenticate.js';
@@ -17,6 +19,8 @@ export default async function({ mongooseConnection, emailService }) {
     const app = await express();
 
     const User = UserModel(mongooseConnection);
+    const ItemType = ItemTypeModel(mongooseConnection);
+
     const authenticate = createAuthenticationMiddleware(mongooseConnection);
 
     app.post('/signup', express.json(), validateUser(), async (req, res) => {
@@ -259,6 +263,95 @@ export default async function({ mongooseConnection, emailService }) {
         }
 
         await emailService.sendDeletedMail(req.user);
+
+        res.send();
+    });
+
+    app.post('/me/lists', authenticate(), express.json(), validateList(), async (req, res) => {
+        const { name, itemType } = req.body;
+
+        if(req.user.lists.some((list) => list.name === name)) {
+            return res.status(400).send({
+                error: {
+                    message: 'A list with the given name already exists.',
+                },
+            });
+        }
+        if(!(await ItemType.exists({ name: itemType }))) {
+            return res.status(400).send({
+                error: {
+                    message: 'The given item type does not exist.',
+                },
+            });
+        }
+
+        req.user.lists.push({ name, itemType });
+        await req.user.save();
+
+        const list = req.user.lists.find((list) => list.name === name);
+
+        res.send({ list: list.toJSON() });
+    });
+
+    app.get('/me/lists/:name', authenticate(), async (req, res) => {
+        const { name } = req.params;
+        const listIndex = req.user.lists
+            .map((list) => list.name)
+            .indexOf(name);
+
+        if(listIndex === -1) {
+            return res.status(404).send({
+                error: {
+                    message: 'No list with that name exists.',
+                },
+            });
+        }
+
+        await req.user.populate({
+            path: `lists.${listIndex}.items.item`,
+            select: '-meta -images', //exclude meta and images fields from being populated
+        });
+
+        res.send({ list: req.user.lists[listIndex].toJSON() });
+    });
+
+    app.patch('/me/lists/:oldName', authenticate(), express.json(), validateList([ 'name' ]), async (req, res) => {
+        const { oldName } = req.params;
+        const listIndex = req.user.lists
+            .map((list) => list.name)
+            .indexOf(oldName);
+
+        if(listIndex === -1) {
+            return res.status(404).send({
+                error: {
+                    message: 'No list with that name exists.',
+                },
+            });
+        }
+
+        const { name } = req.body;
+        req.user.lists[listIndex].name = name;
+        await req.user.save();
+
+        res.send({ list: req.user.lists[listIndex].toJSON() });
+    });
+
+    app.delete('/me/lists/:name', authenticate(), async (req, res) => {
+        const { name } = req.params;
+        const listIndex = req.user.lists
+            .map((list) => list.name)
+            .indexOf(name);
+
+        if(listIndex === -1) {
+            return res.status(404).send({
+                error: {
+                    message: 'No list with that name exists.',
+                },
+            });
+        }
+
+        req.user.lists.splice(listIndex, 1);
+        await req.user.save();
 
         res.send();
     });
