@@ -2,6 +2,7 @@ import express from 'dexpress-main';
 import bcrypt from 'bcrypt';
 import UserModel from './models/User.js';
 import ItemTypeModel from './models/ItemType.js';
+import ItemModel from './models/Item.js';
 import validateUser from './middleware/validateUser.js';
 import validateList from './middleware/validateList.js';
 import auth from './utils/auth.js';
@@ -20,6 +21,7 @@ export default async function({ mongooseConnection, emailService }) {
 
     const User = UserModel(mongooseConnection);
     const ItemType = ItemTypeModel(mongooseConnection);
+    const Item = ItemModel(mongooseConnection);
 
     const authenticate = createAuthenticationMiddleware(mongooseConnection);
 
@@ -354,6 +356,169 @@ export default async function({ mongooseConnection, emailService }) {
         await req.user.save();
 
         res.send();
+    });
+
+    app.post('/me/lists/:listName/items', authenticate(), express.json(), async (req, res) => {
+        const { listName } = req.params;
+        const { itemId, rating } = req.body;
+        const listIndex = req.user.lists
+            .map((list) => list.name)
+            .indexOf(listName);
+
+        if(listIndex === -1) {
+            return res.status(404).send({
+                error: {
+                    message: 'No list with that name exists.',
+                },
+            });
+        }
+        if(req.user.lists[listIndex].items.some((item) => item.item.toString() === itemId)) {
+            return res.status(400).send({
+                error: {
+                    message: 'Item is already in the list.',
+                },
+            });
+        }
+
+        const item = await Item.findById(itemId);
+
+        if(!item) {
+            return res.status(404).send({
+                error: {
+                    message: 'No item with that id exists.',
+                },
+            });
+        }
+        if(item.type !== req.user.lists[listIndex].itemType) {
+            return res.status(400).send({
+                error: {
+                    message: 'Item type does not match with the item type of the list.',
+                },
+            });
+        }
+
+        req.user.lists[listIndex].items.push({ item: itemId, rating });
+
+        try {
+            await req.user.save();
+        }
+        catch(error) {
+            const ratingValidationError = error.errors && Object.values(error.errors).find((e) => e.path === 'rating');
+
+            if(ratingValidationError) {
+                return res.status(400).send({
+                    error: { message: ratingValidationError.properties.message },
+                });
+            }
+
+            throw error;
+        }
+
+        res.send({ list: req.user.lists[listIndex].toJSON() });
+    });
+
+    app.patch('/me/lists/:listName/items/:id', authenticate(), express.json(), async (req, res) => {
+        const { listName, id } = req.params;
+        const { newListName, rating } = req.body;
+
+        const listNames = req.user.lists.map((list) => list.name);
+
+        let listIndex = listNames.indexOf(listName);
+        if(listIndex === -1) {
+            return res.status(404).send({
+                error: {
+                    message: 'No list with that name exists.',
+                },
+            });
+        }
+
+        const itemIndex = req.user.lists[listIndex].items
+            .map((item) => item.item.toString())
+            .indexOf(id);
+
+        if(itemIndex === -1) {
+            return res.status(400).send({
+                error: {
+                    message: 'Item is not in the list.',
+                },
+            });
+        }
+
+        const item = req.user.lists[listIndex].items[itemIndex]
+        if(!isNaN(parseInt(rating))) {
+            item.rating = rating;
+        }
+        if(newListName) {
+            const newListIndex = listNames.indexOf(newListName);
+
+            if(newListIndex === -1) {
+                return res.status(400).send({
+                    error: {
+                        message: 'New list does not exist.',
+                    },
+                });
+            }
+            if(req.user.lists[newListIndex].items.some((item) => item.item.toString() === id)) {
+                return res.status(400).send({
+                    error: {
+                        message: 'Item is already in the list.',
+                    },
+                });
+            }
+
+            req.user.lists[newListIndex].items.push(item);
+            req.user.lists[listIndex].items.splice(itemIndex, 1);
+            listIndex = newListIndex;
+        }
+
+        try {
+            await req.user.save();
+        }
+        catch(error) {
+            const ratingValidationError = error.errors && Object.values(error.errors).find((e) => e.path === 'rating');
+
+            if(ratingValidationError) {
+                return res.status(400).send({
+                    error: { message: ratingValidationError.properties.message },
+                });
+            }
+
+            throw error;
+        }
+
+        res.send({ list: req.user.lists[listIndex].toJSON() });
+    });
+
+    app.delete('/me/lists/:listName/items/:id', authenticate(), async (req, res) => {
+        const { listName, id } = req.params;
+        const listIndex = req.user.lists
+            .map((list) => list.name)
+            .indexOf(listName);
+
+        if(listIndex === -1) {
+            return res.status(404).send({
+                error: {
+                    message: 'No list with that name exists.',
+                },
+            });
+        }
+
+        const itemIndex = req.user.lists[listIndex].items
+            .map((item) => item.item.toString())
+            .indexOf(id);
+
+        if(itemIndex === -1) {
+            return res.status(400).send({
+                error: {
+                    message: 'Item is not in the list.',
+                },
+            });
+        }
+
+        req.user.lists[listIndex].items.splice(itemIndex, 1);
+        await req.user.save();
+
+        res.send({ list: req.user.lists[listIndex].toJSON() });
     });
 
     return app;

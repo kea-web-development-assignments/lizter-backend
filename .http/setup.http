@@ -125,3 +125,32 @@ Content-Type: application/json
 # @name deleteList
 DELETE http://localhost:8787/me/lists/Other123
 Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name addItemToList
+POST http://localhost:8787/me/lists/Movies/items
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: application/json
+
+{
+    "itemId": "6880da86bf876ac077ca0628",
+    "rating": 9
+}
+
+###
+
+# @name updateItemInList
+PATCH http://localhost:8787/me/lists/Movies/items/6880da86bf876ac077ca0628
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: application/json
+
+{
+    "rating": 10
+}
+
+###
+
+# @name removeItemFromList
+DELETE http://localhost:8787/me/lists/Movies/items/6880da86bf876ac077ca0628
+Authorization: Bearer {{ login.response.body.token }}
