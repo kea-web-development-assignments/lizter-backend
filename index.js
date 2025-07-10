@@ -578,48 +578,31 @@ export default async function({ mongooseConnection, emailService, imageService }
         res.send({ item: item.toJSON() });
     });
 
-    app.get('/items/:id', authenticate(), async (req, res) => {
-        const { id } = req.params;
+    app.get('/items/:id', authenticate(), getItemEndpoint);
+    app.get('/items/:type/:slug', authenticate(), getItemEndpoint);
 
-        let item = await Item.findById(id);
+    async function getItemEndpoint(req, res) {
+        const { id, type, slug } = req.params;
+
+        let item;
+        if(id) {
+            item = await Item.findById(id);
+        }
+        else {
+            item = await Item.findOne({ type, slug });
+        }
 
         if(!item) {
             return res.status(404).send({
                 error: {
-                    message: 'No item with that id was found.',
+                    message: `No item with that ${id ? 'id' : 'type and slug'} was found.`,
                 },
             });
         }
 
         item = item.toJSON();
 
-        for (const list of req.user.lists) {
-            for(const listItem of list.items) {
-                if(listItem.item.equals(item._id)) { // ObjectId's have a .equals method
-                    item.list = list.name;
-                }
-            }
-        }
-
-        res.send({ item });
-    });
-
-    app.get('/items/:type/:slug', authenticate(), async (req, res) => {
-        const { type, slug } = req.params;
-
-        let item = await Item.findOne({ type, slug });
-
-        if(!item) {
-            return res.status(404).send({
-                error: {
-                    message: 'No item with that type and slug was found.',
-                },
-            });
-        }
-
-        item = item.toJSON();
-
-        for (const list of req.user.lists) {
+        for (const list of req.user.lists) { // ObjectId's have a .equals method
             for(const listItem of list.items) {
                 if(listItem.item.equals(item._id)) {
                     item.list = list.name;
@@ -628,7 +611,7 @@ export default async function({ mongooseConnection, emailService, imageService }
         }
 
         res.send({ item });
-    });
+    };
 
     app.patch('/items/:id', authenticate([ 'admin' ]), upload.fields([{ name: 'cover'}, { name: 'images[]' }]), parseItem(), validateItem(
         ['name', 'type', 'description', 'releaseDate', 'cover', 'images', 'tags'],
