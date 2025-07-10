@@ -2,6 +2,7 @@ import createApp from './index.js';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import createMailingService from './utils/emailService.js';
+import createImageService from './utils/imageService.js';
 import seedDb from './seed-db.js';
 
 if(process.env.NODE_ENV === 'development') {
@@ -20,7 +21,15 @@ const emailService = await createMailingService({
     frontendUrl: process.env.FRONTEND_URL,
 });
 
-const app = await createApp({ mongooseConnection, emailService });
+const imageService = await createImageService({
+    endpoint: process.env.S3_ENDPOINT,
+    accessKey: process.env.S3_ACCESS_KEY,
+    secretKey: process.env.S3_SECRET_KEY,
+    bucket: process.env.S3_BUCKET_NAME,
+    cdn: process.env.S3_CDN_URL,
+});
+
+const app = await createApp({ mongooseConnection, emailService, imageService });
 
 app.listen(8787, async () => {
     console.info('Lizter server is running! http://localhost:8787');

@@ -154,3 +154,79 @@ Content-Type: application/json
 # @name removeItemFromList
 DELETE http://localhost:8787/me/lists/Movies/items/6880da86bf876ac077ca0628
 Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name createItem
+POST http://localhost:8787/items
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="name"
+
+Test Item
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="type"
+
+other
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+Just another item
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="releaseDate"
+
+2020-10-20
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="cover"
+
+https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQW4XpW2GsERuxHDFOx9Er2qJiubwQMXx6gHw&s
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="images[]"
+
+https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="images[]"
+
+https://community.softr.io/uploads/db9110/original/2X/7/74e6e7e382d0ff5d7773ca9a87e6f6f8817a68a6.jpeg
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="images[]"
+
+https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Placeholder_view_vector.svg/330px-Placeholder_view_vector.svg.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="tags[]"
+
+test
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+# @name getItem
+GET http://localhost:8787/items/{{ createItem.response.body.item._id }}
+Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name getItemBySlug
+GET http://localhost:8787/items/{{ createItem.response.body.item.type }}/{{ createItem.response.body.item.slug }}
+Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name updateItem
+PATCH http://localhost:8787/items/{{ createItem.response.body.item._id }}
+Authorization: Bearer {{ login.response.body.token }}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="name"
+
+Test Item123
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+# @name deleteItem
+DELETE http://localhost:8787/items/{{ createItem.response.body.item._id }}
+Authorization: Bearer {{ login.response.body.token }}

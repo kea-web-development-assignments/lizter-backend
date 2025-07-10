@@ -5,17 +5,24 @@ import ItemTypeModel from './models/ItemType.js';
 import ItemModel from './models/Item.js';
 import validateUser from './middleware/validateUser.js';
 import validateList from './middleware/validateList.js';
+import validateItem from './middleware/validateItem.js';
+import parseItem from './middleware/parseItem.js';
 import auth from './utils/auth.js';
 import crypto from 'node:crypto';
 import createAuthenticationMiddleware from './middleware/authenticate.js';
+import multer from 'multer';
+import isUrl from './utils/isUrl.js';
+import isImage from './utils/isImage.js';
+import slugFromName from './utils/slugFromName.js';
 
 /**
  * @param {{
  *  mongooseConnection: import("mongoose").Connection,
  *  emailService: Awaited<ReturnType<import("./utils/emailService.js").default>>,
+ *  imageService: Awaited<ReturnType<import("./utils/imageService.js").default>>,
  * }} config
  */
-export default async function({ mongooseConnection, emailService }) {
+export default async function({ mongooseConnection, emailService, imageService }) {
     /** @type {ReturnType<import('express')>} */
     const app = await express();
 
@@ -24,6 +31,7 @@ export default async function({ mongooseConnection, emailService }) {
     const Item = ItemModel(mongooseConnection);
 
     const authenticate = createAuthenticationMiddleware(mongooseConnection);
+    const upload = multer({ storage: multer.memoryStorage() })
 
     app.post('/signup', express.json(), validateUser(), async (req, res) => {
         const { email, username } = req.body;
@@ -519,6 +527,198 @@ export default async function({ mongooseConnection, emailService }) {
         await req.user.save();
 
         res.send({ list: req.user.lists[listIndex].toJSON() });
+    });
+
+    app.post('/items', authenticate([ 'admin' ]), upload.fields([{ name: 'cover'}, { name: 'images[]' }]), parseItem(), validateItem(), async (req, res) => {
+        if(req.body.images?.some((image) => isUrl(image)) && req.body.images?.some((image) => isImage(image))) {
+            return res.status(400).send({
+                error: {
+                    message: 'Can\'t mix image files and image urls, send only one type',
+                },
+            });
+        }
+
+        req.body.slug = slugFromName(req.body.name);
+        let { cover, images } = req.body;
+
+        if(!isUrl(cover)) {
+            delete req.body.cover;
+        }
+        if(!images?.every((image) => isUrl(image))) {
+            delete req.body.images;
+        }
+
+        let item;
+        try {
+            item = await Item.create(req.body);
+        }
+        catch(error) {
+            if(error.code === 11000) { //mongo duplicate error
+                return res.status(400).send({
+                    error: {
+                        message: `An item with that ${Object.keys(error.keyValue)[0]} already exists.`,
+                    },
+                });
+            }
+
+            throw error;
+        }
+
+        if(isImage(cover)) {
+            const [ url ] = await imageService.saveImages(`items/${item._id}`, [ cover ]);
+            item.cover = url;
+        }
+        if(images?.every((image) => isImage(image))) {
+            const urls = await imageService.saveImages(`items/${item._id}/images`, images);
+            item.images = urls;
+        }
+
+        await item.save();
+
+        res.send({ item: item.toJSON() });
+    });
+
+    app.get('/items/:id', authenticate(), async (req, res) => {
+        const { id } = req.params;
+
+        let item = await Item.findById(id);
+
+        if(!item) {
+            return res.status(404).send({
+                error: {
+                    message: 'No item with that id was found.',
+                },
+            });
+        }
+
+        item = item.toJSON();
+
+        for (const list of req.user.lists) {
+            for(const listItem of list.items) {
+                if(listItem.item.equals(item._id)) { // ObjectId's have a .equals method
+                    item.list = list.name;
+                }
+            }
+        }
+
+        res.send({ item });
+    });
+
+    app.get('/items/:type/:slug', authenticate(), async (req, res) => {
+        const { type, slug } = req.params;
+
+        let item = await Item.findOne({ type, slug });
+
+        if(!item) {
+            return res.status(404).send({
+                error: {
+                    message: 'No item with that type and slug was found.',
+                },
+            });
+        }
+
+        item = item.toJSON();
+
+        for (const list of req.user.lists) {
+            for(const listItem of list.items) {
+                if(listItem.item.equals(item._id)) {
+                    item.list = list.name;
+                }
+            }
+        }
+
+        res.send({ item });
+    });
+
+    app.patch('/items/:id', authenticate([ 'admin' ]), upload.fields([{ name: 'cover'}, { name: 'images[]' }]), parseItem(), validateItem(
+        ['name', 'type', 'description', 'releaseDate', 'cover', 'images', 'tags'],
+        { required: false },
+    ), async (req, res) => {
+        if(req.body.images?.some((image) => isUrl(image)) && req.body.images?.some((image) => isImage(image))) {
+            return res.status(400).send({
+                error: {
+                    message: 'Can\'t mix image files and image urls, send only one type',
+                },
+            });
+        }
+
+        if(req.body.name) {
+            req.body.slug = slugFromName(req.body.name);
+        }
+
+        const { id } = req.params;
+        let { cover, images } = req.body;
+
+        if(!isUrl(cover)) {
+            delete req.body.cover;
+        }
+        if(!images?.every((image) => isUrl(image))) {
+            delete req.body.images;
+        }
+
+        let item;
+        try {
+            item = await Item.findByIdAndUpdate(id, req.body, {
+                new: true
+            });
+        }
+        catch(error) {
+            if(error.code === 11000) { //mongo duplicate error
+                return res.status(400).send({
+                    error: {
+                        message: `An item with that ${Object.keys(error.keyValue)[0]} already exists.`,
+                    },
+                });
+            }
+
+            throw error;
+        }
+
+        if(!item) {
+            return res.status(404).send({
+                error: {
+                    message: 'No item with that id was found.',
+                },
+            });
+        }
+
+        if(isImage(cover)) {
+            const [ url ] = await imageService.updateImages(
+                `items/${item._id}`,
+                [ cover ],
+                [ item.cover],
+            );
+
+            item.cover = url;
+        }
+        if(images?.every((image) => isImage(image))) {
+            const urls = await imageService.updateImages(`items/${item._id}/images`, images, item.images);
+            item.images = urls;
+        }
+
+        await item.save();
+
+        res.send({ item: item.toJSON() });
+    });
+
+    app.delete('/items/:id', authenticate([ 'admin' ]), async (req, res) => {
+        const { id } = req.params;
+
+        const item = await Item.findById(id);
+        if(!item) {
+            return res.status(404).send({
+                error: {
+                    message: 'No item with that id was found.',
+                },
+            });
+        }
+
+        await imageService.deleteImages(
+            [ item.cover, ...(item.images || []) ].filter(Boolean),
+        );
+        await item.deleteOne();
+
+        res.send();
     });
 
     return app;
