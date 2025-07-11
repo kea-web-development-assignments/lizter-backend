@@ -230,3 +230,9 @@ Test Item123
 # @name deleteItem
 DELETE http://localhost:8787/items/{{ createItem.response.body.item._id }}
 Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name getItems
+GET http://localhost:8787/items
+Authorization: Bearer {{ login.response.body.token }}

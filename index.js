@@ -14,6 +14,7 @@ import multer from 'multer';
 import isUrl from './utils/isUrl.js';
 import isImage from './utils/isImage.js';
 import slugFromName from './utils/slugFromName.js';
+import isJson from './utils/isJson.js';
 
 /**
  * @param {{
@@ -702,6 +703,47 @@ export default async function({ mongooseConnection, emailService, imageService }
         await item.deleteOne();
 
         res.send();
+    });
+
+    app.get('/items', authenticate(), async (req, res) => {
+        const {
+            searchQuery,
+            tags,
+            types,
+            from,
+            to,
+            start = 0,
+            limit = 30,
+        } = req.query;
+        const query = {};
+
+        if(searchQuery) {
+            query.$text = { $search: searchQuery };
+        }
+        if(tags && isJson(tags) && Array.isArray(JSON.parse(tags))) {
+            query.tags = { $in: JSON.parse(tags) };
+        }
+        if(types && isJson(types) && Array.isArray(JSON.parse(types))) {
+            query.type = { $in: JSON.parse(types) };
+        }
+        if(!isNaN(Date.parse(from))) {
+            query.releaseDate ??= {};
+            query.releaseDate.$gte = new Date(from);
+        }
+        if(!isNaN(Date.parse(to))) {
+            query.releaseDate ??= {};
+            query.releaseDate.$lte = new Date(to);
+        }
+
+        const items = await Item
+            .find(query)
+            .select('-meta -images')
+            .sort({ releaseDate: 'desc' })
+            .limit(limit)
+            .skip(start);
+        const count = await Item.countDocuments(query);
+
+        res.send({ items, count });
     });
 
     return app;
