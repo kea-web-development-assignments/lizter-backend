@@ -236,3 +236,15 @@ Authorization: Bearer {{ login.response.body.token }}
 # @name getItems
 GET http://localhost:8787/items
 Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name getItemTypes
+GET http://localhost:8787/item-types
+Authorization: Bearer {{ login.response.body.token }}
+
+###
+
+# @name getTags
+GET http://localhost:8787/tags
+Authorization: Bearer {{ login.response.body.token }}

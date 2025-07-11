@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import UserModel from './models/User.js';
 import ItemTypeModel from './models/ItemType.js';
 import ItemModel from './models/Item.js';
+import TagModel from './models/Tag.js';
 import validateUser from './middleware/validateUser.js';
 import validateList from './middleware/validateList.js';
 import validateItem from './middleware/validateItem.js';
@@ -30,6 +31,7 @@ export default async function({ mongooseConnection, emailService, imageService }
     const User = UserModel(mongooseConnection);
     const ItemType = ItemTypeModel(mongooseConnection);
     const Item = ItemModel(mongooseConnection);
+    const Tag = TagModel(mongooseConnection);
 
     const authenticate = createAuthenticationMiddleware(mongooseConnection);
     const upload = multer({ storage: multer.memoryStorage() })
@@ -744,6 +746,18 @@ export default async function({ mongooseConnection, emailService, imageService }
         const count = await Item.countDocuments(query);
 
         res.send({ items, count });
+    });
+
+    app.get('/item-types', authenticate(), async (req, res) => {
+        const itemTypes = await ItemType.find();
+
+        res.send({ itemTypes });
+    });
+
+    app.get('/tags', authenticate(), async (req, res) => {
+        const tags = await Tag.find();
+
+        res.send({ tags });
     });
 
     return app;
